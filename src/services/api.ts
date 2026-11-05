@@ -48,7 +48,14 @@ async function readBody(response: Response): Promise<Envelope> {
   }
 }
 
-export async function apiRequest<T = Record<string, unknown>>(path: string, { method = 'GET', body, headers = {}, allowRefresh = true }: RequestOptions = {}): Promise<Envelope<T>> {
+export async function apiRequest<T = Record<string, unknown>>(
+  path: string,
+  {
+    method = 'GET',
+    body, headers = {},
+    allowRefresh = true
+  }: RequestOptions = {}
+): Promise<Envelope<T>> {
   const requestHeaders = new Headers(headers)
   requestHeaders.set('X-Client-Platform', 'web')
   requestHeaders.set('X-Device-Id', getDeviceId())
@@ -58,7 +65,7 @@ export async function apiRequest<T = Record<string, unknown>>(path: string, { me
   if (accessToken) requestHeaders.set('Authorization', `Bearer ${accessToken}`)
 
   const response = await fetch(`${apiBaseUrl()}${path}`, { method, body, headers: requestHeaders, credentials: 'include' })
-  if (response.status === 401 && allowRefresh && hasRefreshToken() && !path.startsWith('/admin/auth/')) {
+  if (response.status === 401 && allowRefresh && hasRefreshToken() && !path.startsWith('/auth/')) {
     await Auth.refresh()
     return apiRequest<T>(path, { method, body, headers, allowRefresh: false })
   }
@@ -72,20 +79,20 @@ function authPost<T>(path: string, data: Record<string, string>) {
 }
 
 export const Auth = {
-  login: (email: string, password: string) => authPost<LoginData>('/admin/auth/login', { email, password }),
-  verify: (data: { email: string; challengeId: string; code: string }) => authPost<SessionData>('/admin/auth/verify', data),
-  resend: (data: { email: string; challengeId: string }) => authPost('/admin/auth/resend', data),
+  login: (email: string, password: string) => authPost<LoginData>('/auth/login', { email, password }),
+  verify: (data: { email: string; challengeId: string; code: string }) => authPost<SessionData>('/auth/verify', data),
+  resend: (data: { email: string; challengeId: string }) => authPost('/auth/resend', data),
   async logout() {
     const refreshToken = sessionStorage.getItem(REFRESH_KEY)
-    try { if (refreshToken) await authPost('/admin/auth/logout', { refreshToken }) } finally { clearSession() }
+    try { if (refreshToken) await authPost('/auth/logout', { refreshToken }) } finally { clearSession() }
   },
-  me: () => apiRequest<{ email?: string }>('/admin/me'),
+  me: () => apiRequest<{ email?: string }>('/me'),
   async refresh() {
     if (!refreshPromise) {
       const refreshToken = sessionStorage.getItem(REFRESH_KEY)
       refreshPromise = (async () => {
         if (!refreshToken) throw new ApiError('Admin session expired. Sign in again.', 401)
-        const result = await authPost<SessionData>('/admin/auth/refresh', { refreshToken })
+        const result = await authPost<SessionData>('/auth/refresh', { refreshToken })
         const data = result.data || {}
         if (!data.accessToken || !data.refreshToken) throw new ApiError('The server returned an invalid admin session.', 500)
         sessionStorage.setItem(ACCESS_KEY, data.accessToken)
@@ -102,14 +109,14 @@ export const Auth = {
 }
 
 export const Kyc = {
-  list: (status = 'PENDING_REVIEW') => apiRequest<Submission[]>(`/admin/kyc?status=${encodeURIComponent(status)}`),
-  photo: (id: string, kind: 'selfie' | 'idPhoto') => apiRequest<{ url?: string }>(`/admin/kyc/${encodeURIComponent(id)}/photos/${kind}`),
-  review: (id: string, decision: 'APPROVED' | 'REJECTED', reason = '') => apiRequest(`/admin/kyc/${encodeURIComponent(id)}/review`, { method: 'POST', headers: { 'Idempotency-Key': crypto.randomUUID() }, body: JSON.stringify({ decision, reason }) }),
+  list: (status = 'PENDING_REVIEW') => apiRequest<Submission[]>(`/kyc?status=${encodeURIComponent(status)}`),
+  photo: (id: string, kind: 'selfie' | 'idPhoto') => apiRequest<{ url?: string }>(`/kyc/${encodeURIComponent(id)}/photos/${kind}`),
+  review: (id: string, decision: 'APPROVED' | 'REJECTED', reason = '') => apiRequest(`/kyc/${encodeURIComponent(id)}/review`, { method: 'POST', headers: { 'Idempotency-Key': crypto.randomUUID() }, body: JSON.stringify({ decision, reason }) }),
 }
 
 export const Announcements = {
-  publish: (data: { title: string; body: string }) => apiRequest<Record<string, number>>('/admin/announcements', { method: 'POST', headers: { 'Idempotency-Key': crypto.randomUUID() }, body: JSON.stringify(data) }),
-  list: () => apiRequest<Announcement[]>('/admin/announcements'),
-  update: (id: string, patch: Partial<Pick<Announcement, 'title' | 'body' | 'active'>>) => apiRequest(`/admin/announcements/${encodeURIComponent(id)}`, { method: 'PATCH', headers: { 'Idempotency-Key': crypto.randomUUID() }, body: JSON.stringify(patch) }),
-  remove: (id: string) => apiRequest(`/admin/announcements/${encodeURIComponent(id)}`, { method: 'DELETE', headers: { 'Idempotency-Key': crypto.randomUUID() } }),
+  publish: (data: { title: string; body: string }) => apiRequest<Record<string, number>>('/announcements', { method: 'POST', headers: { 'Idempotency-Key': crypto.randomUUID() }, body: JSON.stringify(data) }),
+  list: () => apiRequest<Announcement[]>('/announcements'),
+  update: (id: string, patch: Partial<Pick<Announcement, 'title' | 'body' | 'active'>>) => apiRequest(`/announcements/${encodeURIComponent(id)}`, { method: 'PATCH', headers: { 'Idempotency-Key': crypto.randomUUID() }, body: JSON.stringify(patch) }),
+  remove: (id: string) => apiRequest(`/announcements/${encodeURIComponent(id)}`, { method: 'DELETE', headers: { 'Idempotency-Key': crypto.randomUUID() } }),
 }

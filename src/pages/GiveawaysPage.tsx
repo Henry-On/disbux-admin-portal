@@ -1,7 +1,8 @@
 import { useEffect } from 'react'
-import { navigate } from '../services/router'
+import { useNavigate } from 'react-router'
 
 export function GiveawaysPage() {
-  useEffect(() => { navigate('/announcements', true) }, [])
+  const navigate = useNavigate()
+  useEffect(() => { navigate('/announcements', { replace: true }) }, [navigate])
   return null
 }

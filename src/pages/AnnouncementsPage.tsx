@@ -35,16 +35,30 @@ export function AnnouncementsPage() {
 
   async function publish(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setNotice({ text: '', kind: '' })
-    const cleanTitle = title.trim(); const cleanBody = body.trim()
-    if (cleanTitle.length < 3 || cleanBody.length < 3) { setNotice({ text: 'Enter a title and message of at least 3 characters.', kind: 'error' }); return }
+    const cleanTitle = title.trim();
+
+    const cleanBody = body.trim()
+    if (cleanTitle.length < 3 || cleanBody.length < 3) {
+      setNotice({ text: 'Enter a title and message of at least 3 characters.', kind: 'error' });
+      return
+    }
     if (!window.confirm('Publish this announcement to all users? It will appear in the app carousel and notification feed, and be sent by email and push where available.')) return
+
     setBusy(true)
+
     try {
       const response = await Announcements.publish({ title: cleanTitle, body: cleanBody })
       const result = response.data || {}
+
       setNotice({ text: `Published to ${result.recipients ?? 0} users. Email: ${result.emailsSent ?? 0} sent, ${result.emailsFailed ?? 0} failed. Push: ${result.pushesSent ?? 0} sent, ${result.pushesFailed ?? 0} failed.`, kind: 'success' })
-      setTitle(''); setBody(''); await loadHistory()
-    } catch (error) { setNotice({ text: messageOf(error), kind: 'error' }) }
+
+      setTitle('');
+      setBody('');
+      await loadHistory()
+
+    } catch (error) {
+      setNotice({ text: messageOf(error), kind: 'error' })
+    }
     finally { setBusy(false) }
   }
 

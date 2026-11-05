@@ -1,12 +1,13 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Notice } from '../components/AdminLayout'
 import { ApiError, Auth, hasRefreshToken, hasSession } from '../services/api'
-import { safeNextPath } from '../services/config'
-import { navigate } from '../services/router'
+import { useLocation, useNavigate } from 'react-router'
 
 function messageOf(error: unknown) { return error instanceof Error ? error.message : 'Something went wrong. Please try again.' }
 
 export function LoginPage() {
+  const navigate = useNavigate()
+  const location = useLocation()
   const [step, setStep] = useState<'login' | 'verify'>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -15,7 +16,7 @@ export function LoginPage() {
   const [notice, setNotice] = useState({ text: '', kind: '' as '' | 'error' | 'success' })
   const [busy, setBusy] = useState(false)
   const [countdown, setCountdown] = useState(0)
-  const nextPath = safeNextPath(new URLSearchParams(window.location.search).get('next'))
+  const returnTo = (location.state as { from?: { pathname: string; search: string; hash: string } } | null)?.from || '/dashboard'
 
   useEffect(() => {
     let mounted = true
@@ -24,12 +25,12 @@ export function LoginPage() {
       try {
         if (hasSession()) await Auth.me()
         else await Auth.refresh()
-        if (mounted) navigate(nextPath, true)
+        if (mounted) navigate(returnTo, { replace: true })
       } catch { /* show sign-in form */ }
     }
     void checkSession()
     return () => { mounted = false }
-  }, [nextPath])
+  }, [navigate, returnTo])
 
   useEffect(() => {
     if (countdown <= 0) return
@@ -57,7 +58,7 @@ export function LoginPage() {
       const result = await Auth.verify({ email, challengeId, code: code.trim() })
       const data = result.data || {}
       if (!data.accessToken || !data.refreshToken || !data.user?.email) throw new ApiError('The server returned an invalid admin session.', 500)
-      Auth.storeSession(data); navigate(nextPath, true)
+      Auth.storeSession(data); navigate(returnTo, { replace: true })
     } catch (error) { setNotice({ text: messageOf(error), kind: 'error' }) }
     finally { setBusy(false) }
   }

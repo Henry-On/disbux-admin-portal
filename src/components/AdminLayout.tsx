@@ -1,17 +1,20 @@
 import { useEffect, useState, type ReactNode } from 'react'
+import { Link, NavLink, useLocation, useNavigate } from 'react-router'
 import { Auth, clearSession, hasRefreshToken, hasSession } from '../services/api'
-import { navigate } from '../services/router'
 
 const links = [
-  { href: '/dashboard', label: 'Dashboard' },
-  { href: '/kyc', label: 'KYC reviews' },
-  { href: '/announcements', label: 'Announcements' },
+  { to: '/dashboard', label: 'Dashboard' },
+  { to: '/kyc', label: 'KYC reviews' },
+  { to: '/announcements', label: 'Announcements' },
 ]
 
-export function AdminLayout({ active, children }: { active: string; children: ReactNode }) {
+export function AdminLayout({ children }: { children: ReactNode }) {
   const [email, setEmail] = useState('')
   const [ready, setReady] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
+  const location = useLocation()
+  const navigate = useNavigate()
+
   useEffect(() => {
     let mounted = true
     async function checkSession() {
@@ -23,27 +26,28 @@ export function AdminLayout({ active, children }: { active: string; children: Re
         if (mounted) { setEmail(identity.data.email); setReady(true) }
       } catch {
         clearSession()
-        navigate(`/login?next=${encodeURIComponent(`${window.location.pathname}${window.location.search}`)}`, true)
+
+        navigate('/login', { replace: true, state: { from: location } })
       }
     }
     void checkSession()
     return () => { mounted = false }
-  }, [])
+  }, [location.pathname, location.search, navigate])
 
   async function signOut() {
-    try { await Auth.logout() } finally { navigate('/login', true) }
+    try { await Auth.logout() } catch { /* always leave the protected area */ } finally { navigate('/login', { replace: true }) }
   }
 
   if (!ready) return <main className="page-shell"><div className="empty-state">Checking admin session…</div></main>
   return <div className="portal">
     <header className="portal-topbar">
-      <a className="brand" href="/dashboard" onClick={(event) => { event.preventDefault(); navigate('/dashboard') }}><img src="/images/logo.png" alt="Disbux" /><span>Admin</span></a>
+      <Link className="brand" to="/dashboard"><img src="/images/logo.png" alt="Disbux" /><span>Admin</span></Link>
       <button className="nav-toggle" type="button" aria-expanded={menuOpen} aria-controls="portal-nav" onClick={() => setMenuOpen(!menuOpen)}>Menu</button>
     </header>
     <aside className={`sidebar${menuOpen ? ' open' : ''}`} id="portal-nav" aria-label="Admin navigation">
-      <a className="brand" href="/dashboard" onClick={(event) => { event.preventDefault(); navigate('/dashboard') }}><img src="/images/logo.png" alt="Disbux" /><span>Admin Portal</span></a>
+      <Link className="brand" to="/dashboard"><img src="/images/logo.png" alt="Disbux" /><span>Admin Portal</span></Link>
       <span className="nav-label">Manage</span>
-      {links.map((link) => <a key={link.href} className="nav-link" href={link.href} aria-current={active === link.href ? 'page' : undefined} onClick={(event) => { event.preventDefault(); navigate(link.href) }}>{link.label}</a>)}
+      {links.map((link) => <NavLink key={link.to} className="nav-link" to={link.to}>{link.label}</NavLink>)}
       <span className="nav-label">Site</span>
       <a className="nav-link" href="https://disbux.com">View website</a>
       <div className="sidebar-footer"><span className="account-email">{email}</span><button className="button outline" type="button" onClick={() => void signOut()}>Sign out</button></div>
